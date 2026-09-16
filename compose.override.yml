@@ -1,0 +1,28 @@
+# Extra mounts for this agent. agent-mgr's template makes exactly one -- this
+# agent's home -- and names this file as where an instance adds its own.
+#
+# One line per skill, landing FLAT at /opt/data/skills/<name> (never nested
+# under a category, and never AT /opt/data/skills itself -- that path is
+# where `agent-mgr deploy` installs whatever skills.tsv names).
+#
+# ${AGENT_DIR}, never "./" -- agent-mgr passes its own templates/compose.yml
+# as the FIRST -f, and Compose resolves relative bind paths against that
+# file's directory.
+#
+# NESTED bind (skills/): if the target mountpoint doesn't exist yet, Docker
+# creates it inside the parent bind's SOURCE, on the host, as root:root --
+# already avoided here by creating the leaf as this user before the first
+# `up` (see new-agent-howto.md).
+#
+# SOUL.md overlays the image's default persona with the same text plus one
+# routing rule: check skills before improvising a meal log or BMR estimate.
+# Learned from receiptsnap: a rule with an exception for "the user already
+# gave a clear instruction" has a loophole a captioned message walks right
+# through -- this one has none. The host file already exists (the gateway
+# writes it at first boot), so this is a plain file overlay, not the
+# missing-mountpoint case above.
+services:
+  hermes:
+    volumes:
+      - ${AGENT_DIR:?set by agent-mgr from the registry}/nutrilatch:/opt/data/skills/nutrilatch:ro
+      - ${AGENT_DIR:?set by agent-mgr from the registry}/runtime/SOUL.md:/opt/data/SOUL.md:ro
