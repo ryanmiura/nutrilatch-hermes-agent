@@ -1,0 +1,14 @@
+# The agent-index usage client, pinned.
+#
+# Not committed: plow-pbc/agent-index-client owns that file and is public, so
+# this repo names a commit instead of carrying a copy that drifts from it.
+# The image build fetches exactly this revision and refuses anything else.
+#
+# A sha, never `main`. This runs inside an agent holding a live Plow
+# credential, so a moving reference would substitute unreviewed code under
+# it. The checksum is the second half: a sha in a URL is only as good as the
+# host serving it. Both verified locally against the live repo before this
+# file was written.
+sha=f900ff144076f0a766584b6ec4d0993600779b16
+sha256=633ad3bc24a51d6b7dcfaae319983ab174d9853a525237d99cac64878452560c
+path=standalone/agent_index_client.py

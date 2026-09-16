@@ -21,8 +21,23 @@
 # through -- this one has none. The host file already exists (the gateway
 # writes it at first boot), so this is a plain file overlay, not the
 # missing-mountpoint case above.
+# `build`/`image`/`pull_policy` below are the derived-image recipe from
+# agent-mgr's HOWTO ("Where does my code go?"): AGENT_IMAGE in agent.env
+# names the SAME tag built here. `pull_policy: never` is load-bearing --
+# its absence is what `resolve-guard` refuses to run against. Build once
+# with `agent-mgr compose nutrilatch build`, THEN `agent-mgr up nutrilatch`.
+#
+# AGENT_ID is the Agent Index identity the agent-index service (added by
+# this repo's Dockerfile) registers and reports under. Not a secret --
+# PLOW_AGENT_TOKEN stays out of compose entirely.
 services:
   hermes:
+    build:
+      context: ${AGENT_DIR:?set by agent-mgr from the registry}
+    image: ${AGENT_IMAGE:?set in agent.env}
+    pull_policy: never
+    environment:
+      AGENT_ID: nutrilatch
     volumes:
       - ${AGENT_DIR:?set by agent-mgr from the registry}/nutrilatch:/opt/data/skills/nutrilatch:ro
       - ${AGENT_DIR:?set by agent-mgr from the registry}/runtime/SOUL.md:/opt/data/SOUL.md:ro
