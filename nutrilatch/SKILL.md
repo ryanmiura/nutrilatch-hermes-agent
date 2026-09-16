@@ -1,6 +1,6 @@
 ---
 name: nutrilatch
-description: Log a meal (described in text, like "comi 200g de arroz com 150g de frango", or a photo of a plate) with an estimated calorie count into a CSV on the owner's Mac, and separately track the profile fields needed to calculate Basal Metabolic Rate (BMR). Use when an incoming message describes or photographs food, when the user asks about calories eaten ("quantas calorias comi hoje?"), or when the user asks about their BMR/metabolism.
+description: Log a meal (described in text, like "comi 200g de arroz com 150g de frango", or a photo of a plate) with an estimated calorie count into a CSV on the owner's Mac, track the profile fields needed to calculate Basal Metabolic Rate (BMR), and once BMR is known, report remaining calories toward it after every meal. Use when an incoming message describes or photographs food, when the user asks about calories eaten ("quantas calorias comi hoje?"), or when the user asks about their BMR/metabolism.
 ---
 
 # NutriLatch
@@ -15,7 +15,9 @@ Plow Latch — no external nutrition API, no database:
    reused after.
 
 These are independent. Logging a meal never requires a completed profile,
-and setting up the profile never requires a meal to be logged first.
+and setting up the profile never requires a meal to be logged first. But
+once the profile IS complete, meal logging uses it too — see "Remaining
+calories" below.
 
 ## Config
 
@@ -83,6 +85,47 @@ might be embedded in accompanying text.
    doesn't, tell the user rather than leaving a mismatched log.
 6. Reply with one line: the food, the estimated calories, and the
    approximation qualifier from above.
+7. Then, depending on whether the BMR profile is complete (you likely just
+   read `profile_path` for the onboarding check above — reuse that read,
+   don't fetch it twice):
+   - **Complete**: add a second line with the remaining-calories budget —
+     see "Remaining calories" below.
+   - **Incomplete, and not declined** (see "Onboarding nudge"): add the
+     nudge line instead.
+   - **Incomplete and declined**: neither — just the one line from step 6.
+
+## Remaining calories
+
+Once `profile_path` has a `bmr_kcal_per_day`, every meal-log reply (step 7
+above) also answers "how much room is left today": `plow_read_file` the
+meal log, sum `calories` for rows whose `date` is today (the row you just
+added included), subtract from `bmr_kcal_per_day`.
+
+- Positive remainder: "Faltam N kcal para sua TMB hoje" (or the
+  equivalent in whatever language the user is writing in).
+- Zero or negative: say the budget is already used up and by how much —
+  never print a negative number as if it were remaining room.
+
+This tracks against BMR specifically, exactly what the profile calculates
+— not a higher activity-adjusted budget. That is a deliberate choice, not
+an oversight: don't silently substitute a different number.
+
+## Onboarding nudge
+
+While `profile_path` doesn't exist or is missing a required field, and the
+owner hasn't declined (see below), every reply that touches meal-logging
+or BMR — not general conversation — ends with a short one-line invitation
+to set it up: something like "Quer que eu calcule sua TMB? Preciso de
+sexo, peso, altura e idade." This is what makes setup happen on first real
+use rather than needing the owner to ask about BMR unprompted.
+
+**Stop asking once declined.** If the owner says no, not now, or similar,
+write `{"declined_onboarding": true}` merged into whatever `profile_path`
+already holds (create the file with just that key if it doesn't exist
+yet), and don't repeat the nudge on later replies. If they later bring up
+BMR themselves, proceed normally — that key is harmless noise that
+disappears the moment "Set up or update the BMR profile" below writes a
+real, complete profile over it.
 
 ## Answer calorie questions
 
@@ -93,9 +136,10 @@ values, if the user seems to be treating it as exact.
 
 ## Set up or update the BMR profile
 
-Trigger this when the user asks about their BMR/metabolism and
-`profile_path` doesn't exist yet or is missing a field, or when they
-explicitly want to update it (new weight, etc.).
+Trigger this when the user asks about their BMR/metabolism, when they
+respond to the onboarding nudge above (a "yes," or straight away answering
+with sex/weight/height/age), or when they explicitly want to update it
+(new weight, etc.).
 
 1. `plow_read_file {path: "<profile_path>"}` to see what's already known.
    Missing file means nothing is known yet — that's normal on first use,

@@ -2,10 +2,9 @@
 
 A [Hermes](https://howto.plow.co/hermes) agent, run via
 [`agent-mgr`](https://github.com/plow-pbc/agent-mgr): text what you ate (or
-a photo of your plate), and it estimates the calories and logs it to a CSV
-on your own Mac. Separately, it tracks the profile fields needed to
-calculate your Basal Metabolic Rate (BMR) and answers with the formula
-result once it knows them.
+a photo of your plate), and it estimates the calories, logs it to a CSV on
+your own Mac, and — once it knows your Basal Metabolic Rate (BMR) — tells
+you how many calories you have left for the day.
 
 ## What it does
 
@@ -19,10 +18,15 @@ result once it knows them.
    approximate, not a lab measurement.
 4. Ask "quantas calorias comi hoje?" any time and it rereads the same file
    to answer.
-5. Ask about your BMR/metabolism, and it asks (once) for sex, weight,
-   height and age, computes BMR with a fixed formula (Mifflin-St Jeor —
-   deterministic, not the model doing arithmetic), and saves it to
-   `~/Plow/nutrilatch/profile.json` so it never has to ask again.
+5. On first real use, it actively invites you to set up your BMR (sex,
+   weight, height, age) — a nudge that keeps showing up on meal-related
+   replies until you either answer it or say not now. It computes BMR with
+   a fixed formula (Mifflin-St Jeor — deterministic, not the model doing
+   arithmetic) and saves it to `~/Plow/nutrilatch/profile.json` so it
+   never has to ask again.
+6. Once BMR is known, every meal-log reply also says how many calories are
+   left today to stay within it (or how far over, if you've gone past
+   it) — a running budget for the day, tracked against BMR specifically.
 
 See [`nutrilatch/SKILL.md`](nutrilatch/SKILL.md) for the exact flow.
 
