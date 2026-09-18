@@ -1,5 +1,5 @@
 # NutriLatch variant for Plow Cloud and plow-agents local runs.
-FROM public.ecr.aws/e1h7x4a2/plow-cloud-agents:base-42cb36ed16f513e9c7461b3f355acec181c8a26d@sha256:7bb771761c075ef3736c4cc7bdc48402ce325ed35b5efb529b1b31ec7956fd40
+FROM public.ecr.aws/e1h7x4a2/plow-cloud-agents:base-51f83158a70a383f03a4d03dbd8b6ea102cf0361@sha256:253d7ed3409effa7fa59113d93b4b79bb731d8264cdaf4cd60294924d0110a2e
 
 COPY --chmod=0644 runtime/persona.md /opt/hermes/plow-seed/persona.md
 COPY LICENSE /usr/share/doc/nutrilatch/LICENSE
