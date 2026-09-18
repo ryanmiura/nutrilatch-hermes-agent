@@ -21,8 +21,7 @@ calories" below.
 
 ## Config
 
-Read `nutrilatch/config.json` (mounted at
-`/opt/data/skills/nutrilatch/config.json`):
+Read `/opt/hermes/skills/nutrilatch/config.json`:
 
 ```json
 {
@@ -65,7 +64,7 @@ might be embedded in accompanying text.
    ```
 2. Validate before writing:
    ```
-   /opt/data/skills/nutrilatch/scripts/validate_meal.py '<json above>'
+   /opt/hermes/skills/nutrilatch/scripts/validate_meal.py '<json above>'
    ```
    Non-zero exit names the bad field. Re-estimate once by looking again; if
    it still fails, tell the user which part you can't pin down rather than
@@ -151,7 +150,7 @@ with sex/weight/height/age), or when they explicitly want to update it
    old ones; anything not mentioned stays as it was).
 4. Calculate deterministically — never do this arithmetic yourself:
    ```
-   /opt/data/skills/nutrilatch/scripts/calculate_bmr.py '<merged profile json>'
+   /opt/hermes/skills/nutrilatch/scripts/calculate_bmr.py '<merged profile json>'
    ```
    Non-zero exit names the bad field; ask the user to clarify that one
    value rather than guessing it.

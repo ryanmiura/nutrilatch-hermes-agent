@@ -1,101 +1,44 @@
 #!/command/with-contenv sh
-# shellcheck shell=sh
-# Report this agent's token usage to the Agent Index, every 5 minutes.
-#
-# Adapted from plow-pbc/life-assistant-hermes-agent's cloud-fleet service for
-# this repo's LOCAL base (agent-mgr's pinned hermes_local, run via Docker
-# Compose on the operator's own Mac, not a Plow-owned exe.dev VM). Two things
-# differ from that reference and both were confirmed by inspecting a running
-# hermes-scaffold container rather than assumed:
-#   - HERMES_HOME is /opt/data here (the agent-mgr home bind), not
-#     /var/lib/hermes.
-#   - Services drop privilege with `s6-setuidgd hermes`, a named account whose
-#     uid/gid agent-mgr maps to HERMES_UID/HERMES_GID (the host user, so
-#     files this writes are host-owned) -- not a fixed uid 10000.
-#
-# NO SWITCH, same reasoning as the reference: an agent whose owner does not
-# want usage on the index is one built without this service.
-#
-# Registered into s6-rc.d/user2 (an empty extension bundle already present in
-# the base image) rather than s6-rc.d/user (the base's own bundle) -- so a
-# rebuild of the base image can add or change its own services without this
-# file's registration colliding with it.
+# Report usage without passing the broad Plow bearer to normal report calls.
+PATH=/command:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
+export PATH AGENT_ID
+HERMES_HOME=/var/lib/hermes
+export HERMES_HOME
 
-# HOME-anchored state must land under HERMES_HOME, not /root -- with-contenv
-# repopulates HOME as /root before this runs, same as the dashboard service.
-export HOME="$HERMES_HOME"
-cd "$HERMES_HOME" || exit 1
-
-# AGENT_ID names which agent this is; without it there is nothing to report
-# FOR, so the service stands down rather than guessing a name. Set via this
-# agent's compose.override.yml (environment.AGENT_ID), not agent.env --
-# agent.env's own vars are read by agent-mgr itself, not passed into the
-# container.
-AGENT_ID="$(cat /run/s6/container_environment/AGENT_ID 2>/dev/null || true)"
-export AGENT_ID
-
-if [ -z "$AGENT_ID" ]; then
-  echo "agent-index: no AGENT_ID in this container's environment, so there is no" >&2
-  echo "agent to report for -- standing down. Set it in compose.override.yml." >&2
-  exec sleep infinity
-fi
-
-# PLOW_AGENT_TOKEN is a credential, and agent-mgr's contract is explicit that
-# compose passes none: "The gateway reads [$HERMES_HOME/.env] ... It is the
-# ONLY place credentials belong." So unlike AGENT_ID above, this is read
-# straight from that file -- the same one the gateway and the chat plugin
-# read -- never from compose `environment:` or container_environment. Only
-# needed for the one-time --register call below; ongoing reports use the key
-# the exchange already stored in this install's own state.
-plow_agent_token() {
-  sed -n 's/^PLOW_AGENT_TOKEN=//p' "$HERMES_HOME/.env" 2>/dev/null | tail -n1
+client() {
+  /command/s6-setuidgid hermes env -i \
+    PATH="$PATH" HOME="$HERMES_HOME" HERMES_HOME="$HERMES_HOME" \
+    AGENT_ID="$AGENT_ID" PLOW_API_BASE="$PLOW_API_BASE" ${TZ:+TZ="$TZ"} \
+    "$@"
 }
 
-# shellcheck disable=SC1091
-. /opt/hermes/.venv/bin/activate
+if [ -z "$AGENT_ID" ]; then
+  echo "agent-index: AGENT_ID is unset; standing down" >&2
+  exec /bin/sleep 86400
+fi
 
 while :; do
-  # The pinned client (vendor/client.pin) owns assertion exchange, aik_
-  # format, and atomic storage. This service only invokes it.
-  #
-  #   0  registered      3  not registered      2  state is there, unreadable
-  #
-  # 2 is not 3: registering over unreadable state would mint a fresh install
-  # id and strand whatever this install already published, so that pass is
-  # skipped instead (matches the client's own README contract).
-  s6-setuidgid hermes \
-    env HOME="$HERMES_HOME" HERMES_HOME="$HERMES_HOME" \
-    python3 /opt/plow/agent-index-client.py status >/dev/null
+  client /opt/hermes/.venv/bin/python3 /opt/plow/agent-index-client.py status >/dev/null
   case $? in
     0) ;;
     3)
-      token="$(plow_agent_token)"
-      if [ -z "$token" ]; then
-        echo "agent-index: PLOW_AGENT_TOKEN is empty in $HERMES_HOME/.env -- cannot" >&2
-        echo "register yet (run agent-mgr activate first)." >&2
-        sleep 300
-        continue
-      fi
-      s6-setuidgid hermes \
-        env HOME="$HERMES_HOME" HERMES_HOME="$HERMES_HOME" AGENT_ID="$AGENT_ID" PLOW_AGENT_TOKEN="$token" \
-        python3 /opt/plow/agent-index-client.py \
+      bearer_name=PLOW_AGENT_TOKEN
+      client env "$bearer_name=$PLOW_AGENT_TOKEN" \
+        /opt/hermes/.venv/bin/python3 /opt/plow/agent-index-client.py \
         --register --agent "$AGENT_ID" >/dev/null || {
-        echo "agent-index: no index key this pass, not reporting" >&2
-        sleep 300
-        continue
-      }
+          echo "agent-index: registration failed; retrying later" >&2
+          /bin/sleep 300
+          continue
+        }
       ;;
     *)
-      echo "agent-index: the client could not read this install's state (above);" >&2
-      echo "standing off rather than registering over it." >&2
-      sleep 300
+      echo "agent-index: state unreadable; refusing to register over it" >&2
+      /bin/sleep 300
       continue
       ;;
   esac
 
-  s6-setuidgid hermes \
-    env HOME="$HERMES_HOME" HERMES_HOME="$HERMES_HOME" AGENT_ID="$AGENT_ID" \
-    python3 /opt/plow/agent-index-client.py \
-    || echo "agent-index: reporter exited non-zero, see the line above" >&2
-  sleep 300
+  client /opt/hermes/.venv/bin/python3 /opt/plow/agent-index-client.py \
+    || echo "agent-index: report failed; retrying later" >&2
+  /bin/sleep 300
 done

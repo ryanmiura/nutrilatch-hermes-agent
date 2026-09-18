@@ -1,7 +1,6 @@
 # NutriLatch
 
-A [Hermes](https://howto.plow.co/hermes) agent, run via
-[`agent-mgr`](https://github.com/plow-pbc/agent-mgr): text what you ate (or
+A [Hermes](https://howto.plow.co/hermes) agent for Plow: text what you ate (or
 a photo of your plate), and it estimates the calories, logs it to a CSV on
 your own Mac, and — once it knows your Basal Metabolic Rate (BMR) — tells
 you how many calories you have left for the day.
@@ -41,36 +40,23 @@ See [`nutrilatch/SKILL.md`](nutrilatch/SKILL.md) for the exact flow.
   shared-folder convention), so logging a meal never pops an approval
   dialog.
 
-## Bring it up
+## Install
 
-Prerequisites: `docker`, `python3` (3.11+), an authenticated `gh`, and
-[`agent-mgr`](https://github.com/plow-pbc/agent-mgr) installed
-(`agent-mgr ls` should run).
+The simplest path is **Deploy this agent** on the
+[NutriLatch Agent Index page](https://aiworthusing.com/agent-index/nutrilatch).
+Install Plow Latch on the Mac and sign in to the same Plow account; NutriLatch
+creates its files under `~/Plow/nutrilatch/` automatically on first use.
+
+To run the image from source, install Docker, Python 3.11+, and
+[`plow-agents`](https://github.com/plow-pbc/plow-agents), then:
 
 ```sh
 git clone https://github.com/ryanmiura/nutrilatch-hermes-agent.git
-agent-mgr register nutrilatch ./nutrilatch-hermes-agent
-agent-mgr deploy nutrilatch
-
-# Nothing to configure before the first run -- meals.csv and profile.json
-# are created automatically the first time each is needed, as long as
-# Plow Latch is installed.
-
-agent-mgr activate nutrilatch         # texts a one-time code to your phone
-agent-mgr up nutrilatch
-agent-mgr sign-in nutrilatch          # device-code OAuth in your browser
-
-# Pair it to a Mac running Plow Latch: in Latch, Agents pane -> MCP clients
-# -> Connect MCP client -> "Can't use OAuth? Create a static credential" ->
-# copy the JSON it shows once, then:
-agent-mgr set-latch nutrilatch
-agent-mgr check-latch nutrilatch      # expect "latch reachable ... (HTTP 200)"
-```
-
-Smoke test:
-
-```sh
-agent-mgr agent nutrilatch "hello, who are you?"
+cd nutrilatch-hermes-agent
+plow-agents login
+plow-agents lines
+plow-agents deploy --local --line <FREE_LINE_ID>
+docker compose logs -f
 ```
 
 Then text a meal to the agent's Plow Chat line.
